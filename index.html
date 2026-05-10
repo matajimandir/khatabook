@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="hi" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Khatabook</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#0e0a04"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Khata"/>
+  <link rel="apple-touch-icon" href="icon-192.png"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"/>
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png"/>
+
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Hind:wght@400;500;600&display=swap" rel="stylesheet"/>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink: #1a0a00; --paper: #fdf6ec; --ruled: #e8d9c0;
+      --card-bg: #fffdf7; --border: #d4b896; --shadow: #b8a080; --muted: #888;
+      --accent: #c0392b; --green: #1a7a4a; --red: #c0392b; --gold: #d4a017;
+      --header-bg: #1a0a00; --input-bg: #fdf6ec; --overlay-bg: rgba(26,10,0,0.55);
+    }
+    [data-theme="dark"] {
+      --ink: #f0e6d3; --paper: #1a1208; --ruled: #2a1e0e;
+      --card-bg: #221608; --border: #4a3520; --shadow: #0a0800; --muted: #8a7a60;
+      --accent: #e05040; --green: #2a9a5a; --red: #e05040; --gold: #e4b030;
+      --header-bg: #0e0a04; --input-bg: #1a1208; --overlay-bg: rgba(0,0,0,0.75);
+    }
+
+    body {
+      font-family: 'Hind', sans-serif; background: var(--paper); color: var(--ink);
+      min-height: 100vh;
+      background-image: repeating-linear-gradient(0deg,transparent,transparent 31px,var(--ruled) 31px,var(--ruled) 32px);
+      background-attachment: fixed; transition: background 0.3s, color 0.3s;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    /* PIN SCREEN */
+    #pinScreen {
+      position: fixed; inset: 0; background: #0e0a04; z-index: 1000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+    }
+    #pinScreen.hidden { display: none; }
+    .pin-logo { font-family:'Baloo 2',cursive; font-size:1.9rem; font-weight:800; color:var(--gold); text-align:center; }
+    .pin-logo small { display:block; font-size:0.78rem; color:#aaa; font-weight:400; margin-top:2px; }
+    .pin-title { font-family:'Baloo 2',cursive; font-size:1.05rem; color:#ddd; }
+    .pin-dots { display:flex; gap:14px; }
+    .pin-dot { width:16px; height:16px; border-radius:50%; border:2px solid #555; background:transparent; transition:all 0.15s; }
+    .pin-dot.filled { background:var(--gold); border-color:var(--gold); }
+    .pin-pad { display:grid; grid-template-columns:repeat(3,72px); gap:12px; }
+    .pin-key {
+      width:72px; height:72px; border-radius:50%; border:2px solid #3a2800; background:#2a1500;
+      color:#eee; font-family:'Baloo 2',cursive; font-size:1.4rem; font-weight:700;
+      cursor:pointer; transition:background 0.12s,transform 0.1s;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .pin-key:hover { background:#3a2000; transform:scale(1.06); }
+    .pin-key:active { transform:scale(0.94); }
+    .pin-key.del { font-size:1.1rem; color:#aaa; }
+    .pin-key.empty { background:transparent; border:none; cursor:default; }
+    .pin-error { color:#e05040; font-size:0.85rem; min-height:20px; text-align:center; }
+    .pin-error.shake { animation:shake 0.3s ease; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+
+    /* HEADER */
+    header { background:var(--header-bg); position:sticky; top:0; z-index:100; box-shadow:0 3px 12px rgba(0,0,0,0.35); }
+    .header-inner { max-width:700px; margin:0 auto; padding:11px 16px; display:flex; align-items:center; justify-content:space-between; }
+    .logo { font-family:'Baloo 2',cursive; font-size:1.35rem; font-weight:800; color:var(--gold); display:flex; align-items:center; gap:8px; }
+    .logo span { color:#f0e6d3; }
+    .header-sub { font-size:0.68rem; color:#aaa; margin-top:1px; }
+    .header-actions { display:flex; gap:8px; align-items:center; }
+    .hdr-btn { padding:6px 11px; border-radius:20px; border:1.5px solid #555; background:transparent; color:#ccc; font-size:0.72rem; font-weight:600; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+    .hdr-btn:hover { border-color:var(--gold); color:var(--gold); }
+    .theme-toggle { width:36px; height:36px; border-radius:50%; border:1.5px solid #555; background:transparent; color:#ccc; font-size:1rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+    .theme-toggle:hover { border-color:var(--gold); }
+
+    /* SUMMARY */
+    .summary { max-width:700px; margin:16px auto 0; padding:0 16px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .sum-card { background:var(--card-bg); border:2px solid var(--border); border-radius:10px; padding:12px 10px; text-align:center; box-shadow:3px 3px 0 var(--shadow); position:relative; overflow:hidden; transition:background 0.3s; }
+    .sum-card::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; }
+    .sum-card.denga::before { background:var(--red); }
+    .sum-card.lega::before  { background:var(--green); }
+    .sum-card.net::before   { background:var(--gold); }
+    .sum-label { font-size:0.65rem; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+    .sum-amount { font-family:'Baloo 2',cursive; font-size:1.2rem; font-weight:800; }
+    .sum-card.denga .sum-amount { color:var(--red); }
+    .sum-card.lega  .sum-amount { color:var(--green); }
+    .sum-card.net   .sum-amount { color:var(--gold); }
+
+    /* TABS */
+    .tabs { max-width:700px; margin:14px auto 0; padding:0 16px; display:flex; border-bottom:2px solid var(--border); }
+    .tab { padding:8px 13px; font-family:'Baloo 2',cursive; font-size:0.86rem; font-weight:700; cursor:pointer; border:none; background:transparent; color:var(--muted); border-bottom:3px solid transparent; margin-bottom:-2px; transition:all 0.2s; }
+    .tab.active { color:var(--ink); border-bottom-color:var(--accent); }
+    .tab:hover  { color:var(--ink); }
+
+    /* SEARCH */
+    .search-bar { max-width:700px; margin:12px auto 0; padding:0 16px; }
+    .search-bar input { width:100%; padding:10px 16px 10px 40px; border:2px solid var(--border); border-radius:30px; font-family:'Hind',sans-serif; font-size:0.95rem; background:var(--card-bg); color:var(--ink); outline:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23bbb' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:14px center; transition:border 0.2s; }
+    .search-bar input:focus { border-color:var(--accent); }
+
+    /* LIST */
+    .list-wrap { max-width:700px; margin:12px auto 100px; padding:0 16px; }
+    .empty-state { text-align:center; padding:60px 20px; color:var(--muted); }
+    .empty-state .icon { font-size:3rem; margin-bottom:10px; }
+
+    /* ENTRY CARD */
+    .entry-card { background:var(--card-bg); border:2px solid var(--border); border-left:5px solid; border-radius:10px; padding:12px 13px; margin-bottom:10px; box-shadow:2px 2px 0 var(--shadow); display:flex; align-items:flex-start; gap:10px; transition:box-shadow 0.15s,background 0.3s; }
+    .entry-card:hover { box-shadow:4px 4px 0 var(--shadow); }
+    .entry-card.denga { border-left-color:var(--red); }
+    .entry-card.lega  { border-left-color:var(--green); }
+    .entry-card.settled { opacity:0.5; }
+    .avatar { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-size:1rem; font-weight:800; color:#fff; flex-shrink:0; cursor:pointer; transition:transform 0.15s; }
+    .avatar:hover { transform:scale(1.1); }
+    .denga .avatar { background:var(--red); }
+    .lega  .avatar { background:var(--green); }
+    .entry-info { flex:1; min-width:0; }
+    .entry-name { font-family:'Baloo 2',cursive; font-size:0.98rem; font-weight:700; color:var(--ink); cursor:pointer; }
+    .entry-name:hover { text-decoration:underline; }
+    .entry-note { font-size:0.79rem; color:var(--muted); margin-top:1px; }
+    .entry-date { font-size:0.68rem; color:var(--muted); margin-top:3px; opacity:0.8; }
+    .entry-actions { display:flex; gap:5px; margin-top:8px; flex-wrap:wrap; }
+    .action-btn { padding:4px 9px; border-radius:6px; font-size:0.68rem; font-weight:600; border:1.5px solid; cursor:pointer; background:transparent; transition:all 0.15s; }
+    .settle-btn   { border-color:var(--green); color:var(--green); }
+    .settle-btn:hover { background:#1a7a4a22; }
+    .unsettle-btn { border-color:var(--border); color:var(--muted); }
+    .edit-btn   { border-color:var(--gold); color:var(--gold); }
+    .edit-btn:hover { background:#d4a01722; }
+    .delete-btn { border-color:var(--border); color:var(--muted); }
+    .delete-btn:hover { border-color:var(--red); color:var(--red); }
+    .entry-right { text-align:right; flex-shrink:0; }
+    .entry-amount { font-family:'Baloo 2',cursive; font-size:1.08rem; font-weight:800; }
+    .denga .entry-amount { color:var(--red); }
+    .lega  .entry-amount { color:var(--green); }
+    .entry-tag { display:inline-block; font-size:0.62rem; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:0.3px; margin-top:3px; }
+    .denga .entry-tag   { background:#c0392b18; color:var(--red); }
+    .lega  .entry-tag   { background:#1a7a4a18; color:var(--green); }
+    .settled .entry-tag { background:var(--border); color:var(--muted); }
+
+    /* FAB */
+    .fab { position:fixed; bottom:calc(28px + env(safe-area-inset-bottom)); right:22px; width:58px; height:58px; background:var(--accent); color:#fff; border:none; border-radius:50%; font-size:2rem; cursor:pointer; box-shadow:0 4px 16px rgba(192,57,43,0.45); display:flex; align-items:center; justify-content:center; z-index:200; transition:transform 0.15s; }
+    .fab:hover { transform:scale(1.1); }
+
+    /* MODALS */
+    .overlay { display:none; position:fixed; inset:0; background:var(--overlay-bg); z-index:300; align-items:flex-end; justify-content:center; }
+    .overlay.open { display:flex; }
+    .modal { background:var(--card-bg); width:100%; max-width:700px; border-radius:18px 18px 0 0; padding:22px 20px 32px; box-shadow:0 -8px 40px rgba(0,0,0,0.25); animation:slideUp 0.28s ease; max-height:92vh; overflow-y:auto; }
+    @keyframes slideUp { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+    .modal h2 { font-family:'Baloo 2',cursive; font-size:1.2rem; font-weight:800; margin-bottom:14px; color:var(--ink); }
+
+    .center-overlay { display:none; position:fixed; inset:0; background:var(--overlay-bg); z-index:400; align-items:center; justify-content:center; padding:20px; }
+    .center-overlay.open { display:flex; }
+    .center-modal { background:var(--card-bg); width:100%; max-width:400px; border-radius:16px; padding:24px 20px; box-shadow:0 8px 40px rgba(0,0,0,0.3); max-height:90vh; overflow-y:auto; }
+    .center-modal h2 { font-family:'Baloo 2',cursive; font-size:1.15rem; font-weight:800; margin-bottom:14px; color:var(--ink); }
+
+    /* FORM */
+    .form-group { margin-bottom:12px; }
+    .form-group label { display:block; font-size:0.72rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:5px; }
+    .form-group input { width:100%; padding:10px 13px; border:2px solid var(--border); border-radius:8px; font-family:'Hind',sans-serif; font-size:1rem; background:var(--input-bg); color:var(--ink); outline:none; transition:border 0.2s; }
+    .form-group input:focus { border-color:var(--accent); }
+    .type-toggle { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .type-btn { padding:11px; border:2px solid var(--border); border-radius:8px; background:var(--input-bg); font-family:'Baloo 2',cursive; font-size:0.9rem; font-weight:700; cursor:pointer; transition:all 0.15s; color:var(--muted); }
+    .type-btn.active-denga { border-color:var(--red); background:#c0392b18; color:var(--red); }
+    .type-btn.active-lega  { border-color:var(--green); background:#1a7a4a18; color:var(--green); }
+    .btn-row { display:flex; gap:10px; margin-top:10px; }
+    .btn-save { flex:1; padding:13px; background:var(--ink); color:var(--gold); border:none; border-radius:8px; font-family:'Baloo 2',cursive; font-size:1rem; font-weight:800; cursor:pointer; transition:opacity 0.15s; }
+    .btn-save:hover { opacity:0.85; }
+    .btn-cancel { padding:13px 16px; background:transparent; color:var(--muted); border:2px solid var(--border); border-radius:8px; font-family:'Hind',sans-serif; font-size:0.9rem; cursor:pointer; }
+
+    /* SETTINGS */
+    .settings-section { margin-bottom:16px; }
+    .settings-section h3 { font-size:0.7rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
+    .settings-btn { width:100%; padding:11px 14px; margin-bottom:8px; border-radius:8px; border:2px solid var(--border); background:var(--input-bg); color:var(--ink); font-family:'Hind',sans-serif; font-size:0.92rem; text-align:left; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:10px; }
+    .settings-btn:hover { border-color:var(--accent); }
+    .settings-btn.danger { color:var(--red); }
+    .settings-btn.danger:hover { border-color:var(--red); }
+
+    /* RESTORE */
+    .file-drop { border:2px dashed var(--border); border-radius:10px; padding:26px 20px; cursor:pointer; transition:border-color 0.2s; margin-bottom:14px; text-align:center; }
+    .file-drop:hover { border-color:var(--accent); }
+    .file-drop .drop-icon { font-size:2rem; margin-bottom:6px; }
+    .file-drop p { font-size:0.8rem; color:var(--muted); margin:0; }
+
+    /* BACKUP POPUP */
+    #backupPopup { display:none; position:fixed; inset:0; background:var(--overlay-bg); z-index:500; align-items:center; justify-content:center; padding:20px; }
+    #backupPopup.open { display:flex; }
+    .backup-modal { background:var(--card-bg); width:100%; max-width:340px; border-radius:18px; padding:28px 22px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.3); animation:popIn 0.25s ease; }
+    @keyframes popIn { from{transform:scale(0.85);opacity:0} to{transform:scale(1);opacity:1} }
+    .backup-modal .b-icon { font-size:2.5rem; margin-bottom:10px; }
+    .backup-modal h3 { font-family:'Baloo 2',cursive; font-size:1.1rem; font-weight:800; margin-bottom:6px; color:var(--ink); }
+    .backup-modal p { font-size:0.82rem; color:var(--muted); margin-bottom:18px; line-height:1.5; }
+    .backup-btns { display:flex; gap:10px; }
+    .btn-download { flex:1; padding:12px; background:var(--ink); color:var(--gold); border:none; border-radius:8px; font-family:'Baloo 2',cursive; font-size:0.95rem; font-weight:800; cursor:pointer; }
+    .btn-skip { flex:1; padding:12px; background:transparent; color:var(--muted); border:2px solid var(--border); border-radius:8px; font-family:'Hind',sans-serif; font-size:0.9rem; cursor:pointer; }
+
+    /* PERSON SUMMARY */
+    .person-header { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+    .person-avatar { width:50px; height:50px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-size:1.3rem; font-weight:800; color:#fff; flex-shrink:0; }
+    .pa-red   { background:var(--red); }
+    .pa-green { background:var(--green); }
+    .pa-gold  { background:var(--gold); }
+    .person-name-big { font-family:'Baloo 2',cursive; font-size:1.25rem; font-weight:800; color:var(--ink); }
+    .person-net-txt { font-size:0.82rem; margin-top:2px; }
+    .person-stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+    .ps-card { background:var(--input-bg); border:2px solid var(--border); border-radius:10px; padding:10px 12px; text-align:center; }
+    .ps-label { font-size:0.64rem; color:var(--muted); text-transform:uppercase; font-weight:600; margin-bottom:3px; }
+    .ps-val   { font-family:'Baloo 2',cursive; font-size:1rem; font-weight:800; }
+    .person-entries-title { font-size:0.7rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:8px; }
+    .pe-row { display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); }
+    .pe-row:last-child { border-bottom:none; }
+    .pe-note { font-size:0.83rem; color:var(--ink); font-weight:600; }
+    .pe-date { font-size:0.69rem; color:var(--muted); margin-top:1px; }
+    .pe-amount { font-family:'Baloo 2',cursive; font-size:0.95rem; font-weight:800; }
+    .pe-badge { font-size:0.6rem; font-weight:700; text-transform:uppercase; }
+
+    /* INSTALL BANNER */
+    #installBanner { display:none; position:fixed; bottom:calc(96px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); background:var(--ink); color:var(--gold); padding:10px 20px; border-radius:30px; font-family:'Baloo 2',cursive; font-size:0.85rem; font-weight:700; cursor:pointer; z-index:199; box-shadow:0 4px 20px rgba(0,0,0,0.4); white-space:nowrap; gap:8px; align-items:center; }
+    #installBanner.show { display:flex; animation:slideUp 0.3s ease; }
+
+    @media(max-width:480px){
+      .summary{gap:8px} .sum-amount{font-size:1rem}
+      .logo{font-size:1.15rem} .hdr-btn{padding:5px 9px;font-size:0.68rem}
+    }
+  </style>
+</head>
+<body>
+
+<!-- PIN SCREEN -->
+<div id="pinScreen">
+  <div class="pin-logo">📒 Khatabook<small>Personal Udhaari Tracker</small></div>
+  <div class="pin-title">PIN डालो</div>
+  <div class="pin-dots">
+    <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="pin-error" id="pinError"></div>
+  <div class="pin-pad">
+    <button class="pin-key" onclick="pinKey('1')">1</button>
+    <button class="pin-key" onclick="pinKey('2')">2</button>
+    <button class="pin-key" onclick="pinKey('3')">3</button>
+    <button class="pin-key" onclick="pinKey('4')">4</button>
+    <button class="pin-key" onclick="pinKey('5')">5</button>
+    <button class="pin-key" onclick="pinKey('6')">6</button>
+    <button class="pin-key" onclick="pinKey('7')">7</button>
+    <button class="pin-key" onclick="pinKey('8')">8</button>
+    <button class="pin-key" onclick="pinKey('9')">9</button>
+    <button class="pin-key empty"></button>
+    <button class="pin-key" onclick="pinKey('0')">0</button>
+    <button class="pin-key del" onclick="pinDel()">⌫</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp" style="display:none">
+
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="logo">📒 <span>Khatabook</span></div>
+      <div class="header-sub">Personal Udhaari Tracker</div>
+    </div>
+    <div class="header-actions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+      <button class="hdr-btn" onclick="openSettings()">⚙️ सेटिंग</button>
+    </div>
+  </div>
+</header>
+
+<div class="summary">
+  <div class="sum-card denga"><div class="sum-label">मैंने दिया</div><div class="sum-amount" id="totalDenga">₹0</div></div>
+  <div class="sum-card lega"><div class="sum-label">मैंने लिया</div><div class="sum-amount" id="totalLega">₹0</div></div>
+  <div class="sum-card net"><div class="sum-label">बाकी है</div><div class="sum-amount" id="netBalance">₹0</div></div>
+</div>
+
+<div class="search-bar"><input type="text" id="searchInput" placeholder="नाम से ढूंढो..."/></div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('all',this)">सभी</button>
+  <button class="tab" onclick="switchTab('denga',this)">मैंने दिया</button>
+  <button class="tab" onclick="switchTab('lega',this)">मैंने लिया</button>
+  <button class="tab" onclick="switchTab('settled',this)">निपटा हुआ</button>
+</div>
+
+<div class="list-wrap" id="listWrap">
+  <div class="empty-state"><div class="icon">📒</div><p>कोई उधार नहीं है अभी<br/>नीचे + से नया जोड़ो!</p></div>
+</div>
+
+<button class="fab" onclick="openModal()">+</button>
+<div id="installBanner" onclick="installApp()">📲 Install Khatabook</div>
+
+<!-- ENTRY MODAL -->
+<div class="overlay" id="overlay" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <h2 id="modalTitle">✏️ नई उधारी जोड़ो</h2>
+    <div class="form-group"><label>किसका? (नाम)</label><input type="text" id="inpName" placeholder="जैसे: Rahul, Mummy, Shop..."/></div>
+    <div class="form-group"><label>कितना? (₹)</label><input type="number" id="inpAmount" placeholder="0" min="1"/></div>
+    <div class="form-group"><label>क्यों? (वजह)</label><input type="text" id="inpNote" placeholder="जैसे: किराना, EMI, उधार..."/></div>
+    <div class="form-group"><label>📅 तारीख</label><input type="date" id="inpDate"/></div>
+    <div class="form-group">
+      <label>कौन सा?</label>
+      <div class="type-toggle">
+        <button class="type-btn active-denga" id="btnDenga" onclick="setType('denga')">📤 मैंने दिया</button>
+        <button class="type-btn" id="btnLega" onclick="setType('lega')">📥 मैंने लिया</button>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeModal()">रद्द करो</button>
+      <button class="btn-save" onclick="saveEntry()">💾 सेव करो</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="center-overlay" id="settingsOverlay" onclick="closeSettingsOut(event)">
+  <div class="center-modal">
+    <h2>⚙️ सेटिंग</h2>
+    <div class="settings-section">
+      <h3>💾 Backup & Restore</h3>
+      <button class="settings-btn" onclick="downloadBackup()">📥 Backup Download करो (JSON)</button>
+      <button class="settings-btn" onclick="exportCSV()">📊 Export करो (CSV)</button>
+      <button class="settings-btn" onclick="openRestore()">📤 Restore करो (JSON Upload)</button>
+    </div>
+    <div class="settings-section">
+      <h3>⚠️ Danger Zone</h3>
+      <button class="settings-btn danger" onclick="clearAllData()">🗑️ सारा Data मिटाओ</button>
+    </div>
+    <button class="btn-cancel" style="width:100%;margin-top:4px" onclick="closeSettings()">बंद करो</button>
+  </div>
+</div>
+
+<!-- RESTORE -->
+<div class="center-overlay" id="restoreOverlay" onclick="closeRestoreOut(event)">
+  <div class="center-modal" style="text-align:center">
+    <h2>📤 Data Restore करो</h2>
+    <p style="font-size:0.84rem;color:var(--muted);margin-bottom:16px">Pehle download ki hui JSON file select karo</p>
+    <div class="file-drop" onclick="document.getElementById('jsonFileInput').click()">
+      <div class="drop-icon">📂</div><p>Click karo aur JSON file choose karo</p>
+    </div>
+    <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="handleRestore(event)"/>
+    <button class="btn-cancel" style="width:100%" onclick="closeRestore()">रद्द करो</button>
+  </div>
+</div>
+
+<!-- BACKUP POPUP -->
+<div id="backupPopup">
+  <div class="backup-modal">
+    <div class="b-icon">💾</div>
+    <h3>Backup le lo!</h3>
+    <p id="backupMsg">Nayi entry add hui — data safe kar lo</p>
+    <div class="backup-btns">
+      <button class="btn-skip" onclick="skipBackup()">Skip</button>
+      <button class="btn-download" onclick="downloadAndClose()">📥 Download</button>
+    </div>
+  </div>
+</div>
+
+<!-- PERSON SUMMARY -->
+<div class="overlay" id="personOverlay" onclick="closePersonOut(event)">
+  <div class="modal" id="personModal"></div>
+</div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  CRYPTO — Browser native WebCrypto API
+//  PIN hash (SHA-256) + Data encrypt (AES-GCM)
+// ══════════════════════════════════════════════
+
+// SHA-256 hash of PIN — stored instead of plain PIN
+async function hashPIN(pin) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('khatabook:' + pin));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// Derive AES key from PIN using PBKDF2
+async function deriveKey(pin) {
+  const raw = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt:new TextEncoder().encode('khatabook-salt-v1'), iterations:100000, hash:'SHA-256' },
+    raw, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
+  );
+}
+
+// Encrypt data → base64 string
+async function encryptData(data, pin) {
+  const key = await deriveKey(pin);
+  const iv  = crypto.getRandomValues(new Uint8Array(12));
+  const enc = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(data)));
+  // Store iv + ciphertext together as base64
+  const combined = new Uint8Array(iv.byteLength + enc.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(enc), iv.byteLength);
+  return btoa(String.fromCharCode(...combined));
+}
+
+// Decrypt base64 string → data
+async function decryptData(b64, pin) {
+  const combined = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
+  const iv   = combined.slice(0, 12);
+  const data = combined.slice(12);
+  const key  = await deriveKey(pin);
+  const dec  = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, data);
+  return JSON.parse(new TextDecoder().decode(dec));
+}
+
+// ══════ PIN STATE ══════
+let pinBuffer = '';
+let currentPIN = ''; // kept in memory only — never stored plain
+
+function pinKey(k){ if(pinBuffer.length>=4)return; pinBuffer+=k; refreshDots(); if(pinBuffer.length===4)setTimeout(checkPin,130); }
+function pinDel(){ pinBuffer=pinBuffer.slice(0,-1); refreshDots(); document.getElementById('pinError').textContent=''; }
+function refreshDots(){ for(let i=0;i<4;i++) document.getElementById('d'+i).classList.toggle('filled',i<pinBuffer.length); }
+
+async function checkPin(){
+  const storedHash = localStorage.getItem('khatabookPINHash');
+
+  // First time — no PIN set yet, set it now
+  if(!storedHash){
+    const h = await hashPIN(pinBuffer);
+    localStorage.setItem('khatabookPINHash', h);
+    currentPIN = pinBuffer;
+    unlockApp();
+    return;
+  }
+
+  // Verify against stored hash
+  const h = await hashPIN(pinBuffer);
+  if(h === storedHash){
+    currentPIN = pinBuffer;
+    sessionStorage.setItem('udhaariUnlocked','1');
+    unlockApp();
+  } else {
+    const el=document.getElementById('pinError');
+    el.textContent='Galat PIN! Dobara try karo';
+    el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+    pinBuffer=''; refreshDots();
+  }
+}
+
+// ══════ ENCRYPTED STORAGE ══════
+async function loadEntries(){
+  const raw = localStorage.getItem('khatabookData');
+  if(!raw){ entries=[]; return; }
+  try {
+    entries = await decryptData(raw, currentPIN);
+  } catch {
+    entries = [];
+  }
+}
+
+async function save(){
+  if(!currentPIN) return;
+  const enc = await encryptData(entries, currentPIN);
+  localStorage.setItem('khatabookData', enc);
+}
+
+// ══════ INIT ══════
+async function initApp(){
+  const theme=localStorage.getItem('udhaariTheme')||'light';
+  applyTheme(theme);
+  // If session already unlocked — restore PIN from sessionStorage
+  const sessionPIN = sessionStorage.getItem('udhaariPIN');
+  if(sessionStorage.getItem('udhaariUnlocked')==='1' && sessionPIN){
+    currentPIN = sessionPIN;
+    document.getElementById('pinScreen').classList.add('hidden');
+    document.getElementById('mainApp').style.display='block';
+    await loadEntries();
+    updateSummary(); renderList();
+  }
+}
+
+// ══════ THEME ══════
+function toggleTheme(){ applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark'); }
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙';
+  localStorage.setItem('udhaariTheme',t);
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', t==='dark'?'#0e0a04':'#1a0a00');
+}
+
+// ══════ DATA ══════
+let entries=[], currentType='denga', currentTab='all', editId=null;
+function fmt(n){ return '₹'+Number(n).toLocaleString('en-IN'); }
+function initial(n){ return n?n.trim()[0].toUpperCase():'?'; }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtDate(d){
+  if(!d) return '';
+  const dt=new Date(d.length===10?d+'T00:00:00':d);
+  return dt.toLocaleDateString('hi-IN',{day:'2-digit',month:'short',year:'2-digit'});
+}
+
+function updateSummary(){
+  const active=entries.filter(e=>!e.settled);
+  const denga=active.filter(e=>e.type==='denga').reduce((s,e)=>s+e.amount,0);
+  const lega =active.filter(e=>e.type==='lega' ).reduce((s,e)=>s+e.amount,0);
+  const net=denga-lega;
+  document.getElementById('totalDenga').textContent=fmt(denga);
+  document.getElementById('totalLega').textContent =fmt(lega);
+  const el=document.getElementById('netBalance');
+  el.textContent=fmt(Math.abs(net));
+  el.style.color=net>=0?'var(--red)':'var(--green)';
+}
+
+function renderList(){
+  const search=document.getElementById('searchInput').value.toLowerCase();
+  const list=entries.filter(e=>{
+    if(search&&!e.name.toLowerCase().includes(search)) return false;
+    if(currentTab==='denga')   return e.type==='denga'&&!e.settled;
+    if(currentTab==='lega')    return e.type==='lega' &&!e.settled;
+    if(currentTab==='settled') return e.settled;
+    return true;
+  });
+  const wrap=document.getElementById('listWrap');
+  if(!list.length){ wrap.innerHTML=`<div class="empty-state"><div class="icon">📒</div><p>यहाँ कुछ नहीं है<br/>नीचे + से नया जोड़ो!</p></div>`; return; }
+  wrap.innerHTML='';
+  list.slice().reverse().forEach(e=>{
+    const d=document.createElement('div');
+    d.className=`entry-card ${e.type}${e.settled?' settled':''}`;
+    d.innerHTML=`
+      <div class="avatar" onclick="openPerson('${esc(e.name)}')">${initial(e.name)}</div>
+      <div class="entry-info">
+        <div class="entry-name" onclick="openPerson('${esc(e.name)}')">${esc(e.name)}</div>
+        <div class="entry-note">${esc(e.note||'—')}</div>
+        <div class="entry-date">📅 ${fmtDate(e.date)}</div>
+        <div class="entry-actions">
+          ${!e.settled
+            ?`<button class="action-btn settle-btn" onclick="settle('${e.id}')">✓ निपटाओ</button>`
+            :`<button class="action-btn unsettle-btn" onclick="unsettle('${e.id}')">↩ वापस</button>`}
+          <button class="action-btn edit-btn" onclick="openModal('${e.id}')">✏️ Edit</button>
+          <button class="action-btn delete-btn" onclick="delEntry('${e.id}')">🗑</button>
+        </div>
+      </div>
+      <div class="entry-right">
+        <div class="entry-amount">${fmt(e.amount)}</div>
+        <div class="entry-tag">${e.settled?'निपटा':(e.type==='denga'?'दिया':'लिया')}</div>
+      </div>`;
+    wrap.appendChild(d);
+  });
+}
+
+function switchTab(tab,el){ currentTab=tab; document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderList(); }
+
+function openModal(id=null){
+  editId=id;
+  if(id){
+    const e=entries.find(x=>x.id===id);
+    document.getElementById('modalTitle').textContent='✏️ एंट्री बदलो';
+    document.getElementById('inpName').value  =e.name;
+    document.getElementById('inpAmount').value=e.amount;
+    document.getElementById('inpNote').value  =e.note||'';
+    document.getElementById('inpDate').value  =e.date?e.date.slice(0,10):todayStr();
+    setType(e.type);
+  } else {
+    document.getElementById('modalTitle').textContent='✏️ नई उधारी जोड़ो';
+    document.getElementById('inpName').value='';
+    document.getElementById('inpAmount').value='';
+    document.getElementById('inpNote').value='';
+    document.getElementById('inpDate').value=todayStr();
+    setType('denga');
+  }
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); editId=null; }
+function closeOnOverlay(e){ if(e.target===document.getElementById('overlay')) closeModal(); }
+function setType(type){
+  currentType=type;
+  document.getElementById('btnDenga').className='type-btn'+(type==='denga'?' active-denga':'');
+  document.getElementById('btnLega').className ='type-btn'+(type==='lega' ?' active-lega' :'');
+}
+async function saveEntry(){
+  const name  =document.getElementById('inpName').value.trim();
+  const amount=parseFloat(document.getElementById('inpAmount').value);
+  const note  =document.getElementById('inpNote').value.trim();
+  const date  =document.getElementById('inpDate').value||todayStr();
+  if(!name){alert('नाम लिखना जरूरी है!');return;}
+  if(!amount||amount<=0){alert('सही रकम लिखो!');return;}
+  const isNew=!editId;
+  if(editId){ const idx=entries.findIndex(e=>e.id===editId); entries[idx]={...entries[idx],name,amount,note,date,type:currentType}; }
+  else { entries.push({id:Date.now().toString(),name,amount,note,date,type:currentType,settled:false}); }
+  await save(); updateSummary(); renderList(); closeModal();
+  if(isNew) checkBackup();
+}
+async function settle(id)  { const e=entries.find(x=>x.id===id); if(e){e.settled=true; await save();updateSummary();renderList();} }
+async function unsettle(id){ const e=entries.find(x=>x.id===id); if(e){e.settled=false;await save();updateSummary();renderList();} }
+async function delEntry(id){ if(!confirm('क्या सच में मिटाना है?'))return; entries=entries.filter(e=>e.id!==id); await save();updateSummary();renderList(); }
+
+// ══════ PERSON SUMMARY ══════
+function openPerson(name){
+  const all=entries.filter(e=>e.name===name); if(!all.length)return;
+  const denga=all.filter(e=>e.type==='denga').reduce((s,e)=>s+e.amount,0);
+  const lega =all.filter(e=>e.type==='lega' ).reduce((s,e)=>s+e.amount,0);
+  const net=denga-lega;
+  const paClass=net>0?'pa-red':net<0?'pa-green':'pa-gold';
+  const netTxt=net===0?'सब बराबर है':net>0?`मेरा ₹${Math.abs(net).toLocaleString('en-IN')} बाकी है`:`इनका ₹${Math.abs(net).toLocaleString('en-IN')} बाकी है`;
+  const netColor=net>0?'var(--red)':net<0?'var(--green)':'var(--gold)';
+  const rows=all.slice().reverse().map(e=>`
+    <div class="pe-row">
+      <div><div class="pe-note">${esc(e.note||'—')}</div><div class="pe-date">📅 ${fmtDate(e.date)}${e.settled?' · <span style="color:var(--green)">निपटा</span>':''}</div></div>
+      <div style="text-align:right">
+        <div class="pe-amount" style="color:${e.type==='denga'?'var(--red)':'var(--green)'}">${fmt(e.amount)}</div>
+        <div class="pe-badge" style="color:${e.type==='denga'?'var(--red)':'var(--green)'}">${e.type==='denga'?'दिया':'लिया'}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('personModal').innerHTML=`
+    <div class="person-header">
+      <div class="person-avatar ${paClass}">${initial(name)}</div>
+      <div><div class="person-name-big">${esc(name)}</div><div class="person-net-txt" style="color:${netColor}">${netTxt}</div></div>
+    </div>
+    <div class="person-stats">
+      <div class="ps-card"><div class="ps-label">मैंने दिया</div><div class="ps-val" style="color:var(--red)">${fmt(denga)}</div></div>
+      <div class="ps-card"><div class="ps-label">मैंने लिया</div><div class="ps-val" style="color:var(--green)">${fmt(lega)}</div></div>
+    </div>
+    <div class="person-entries-title">सभी लेन-देन (${all.length})</div>
+    ${rows}
+    <div class="btn-row" style="margin-top:16px"><button class="btn-cancel" style="width:100%" onclick="closePerson()">बंद करो</button></div>`;
+  document.getElementById('personOverlay').classList.add('open');
+}
+function closePerson()     { document.getElementById('personOverlay').classList.remove('open'); }
+function closePersonOut(e) { if(e.target===document.getElementById('personOverlay')) closePerson(); }
+
+// ══════ BACKUP ══════
+function lastBackupCount()    { return parseInt(localStorage.getItem('udhaariLastBackup')||'0'); }
+function saveLastBackupCount(){ localStorage.setItem('udhaariLastBackup',entries.length.toString()); }
+function checkBackup(){
+  if(entries.length>lastBackupCount()){
+    const n=entries.length-lastBackupCount();
+    document.getElementById('backupMsg').textContent=`${n} nayi entr${n>1?'ies':'y'} add hui — data safe kar lo!`;
+    document.getElementById('backupPopup').classList.add('open');
+  }
+}
+function skipBackup()      { document.getElementById('backupPopup').classList.remove('open'); }
+async function downloadAndClose(){ await doDownload(); saveLastBackupCount(); document.getElementById('backupPopup').classList.remove('open'); }
+
+// ══════ SETTINGS ══════
+function openSettings()      { document.getElementById('settingsOverlay').classList.add('open'); }
+function closeSettings()     { document.getElementById('settingsOverlay').classList.remove('open'); }
+function closeSettingsOut(e) { if(e.target===document.getElementById('settingsOverlay')) closeSettings(); }
+
+// JSON backup — encrypted (backward compatible restore)
+async function doDownload(){
+  const enc = await encryptData(entries, currentPIN);
+  const payload = JSON.stringify({version:3,encrypted:true,exportedAt:new Date().toISOString(),data:enc});
+  const blob = new Blob([payload],{type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download=`khatabook-backup-${todayStr()}.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+async function downloadBackup(){ await doDownload(); saveLastBackupCount(); closeSettings(); }
+
+function exportCSV(){
+  const headers=['Naam','Rashi (Rs)','Wajah','Taarikh','Type','Status'];
+  const rows=entries.map(e=>[
+    `"${e.name.replace(/"/g,'""')}"`,
+    e.amount,
+    `"${(e.note||'').replace(/"/g,'""')}"`,
+    e.date||'',
+    e.type==='denga'?'Maine Diya':'Maine Liya',
+    e.settled?'Nipata':'Baaki'
+  ].join(','));
+  const csv=[headers.join(','),...rows].join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`khatabook-export-${todayStr()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  closeSettings();
+}
+
+function openRestore()     { closeSettings(); document.getElementById('restoreOverlay').classList.add('open'); }
+function closeRestore()    { document.getElementById('restoreOverlay').classList.remove('open'); }
+function closeRestoreOut(e){ if(e.target===document.getElementById('restoreOverlay')) closeRestore(); }
+async function handleRestore(event){
+  const file=event.target.files[0]; if(!file)return;
+  const r=new FileReader();
+  r.onload=async ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+
+      let restored=null;
+
+      // Version 3 — encrypted backup
+      if(data.version===3 && data.encrypted && data.data){
+        try{
+          restored = await decryptData(data.data, currentPIN);
+        } catch {
+          alert('❌ Encrypted backup hai — galat PIN ya file corrupt hai!');
+          event.target.value=''; return;
+        }
+      }
+      // Version 1 / 2 — plain JSON (purana backup)
+      else if(data.entries && Array.isArray(data.entries)){
+        restored = data.entries;
+      }
+      // Raw array (bahut purana)
+      else if(Array.isArray(data)){
+        restored = data;
+      }
+      else { throw new Error('Unknown format'); }
+
+      if(!confirm(`${restored.length} entries मिली हैं। Restore करें?\n(मौजूदा data replace ho jayega)`))return;
+      entries=restored; await save(); updateSummary(); renderList(); closeRestore();
+      alert('✅ Data restore हो गया!');
+    } catch{ alert('❌ File सही नहीं है!'); }
+    event.target.value='';
+  };
+  r.readAsText(file);
+}
+async function clearAllData(){
+  if(!confirm('⚠️ सारा data मिट जाएगा — पक्का है?'))return;
+  if(!confirm('आखिरी chance — सच में?'))return;
+  entries=[]; await save(); updateSummary(); renderList(); closeSettings();
+  alert('Data साफ हो गया।');
+}
+
+// ══════ PWA INSTALL ══════
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault(); deferredPrompt=e;
+  document.getElementById('installBanner').classList.add('show');
+});
+function installApp(){
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(()=>{ deferredPrompt=null; document.getElementById('installBanner').classList.remove('show'); });
+}
+window.addEventListener('appinstalled',()=>{ document.getElementById('installBanner').classList.remove('show'); });
+
+// ══════ SERVICE WORKER ══════
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+
+// ══════ SESSION PIN SAVE — so refresh works ══════
+async function unlockApp(){
+  sessionStorage.setItem('udhaariUnlocked','1');
+  sessionStorage.setItem('udhaariPIN', currentPIN);
+  document.getElementById('pinScreen').classList.add('hidden');
+  document.getElementById('mainApp').style.display='block';
+  await loadEntries();
+  updateSummary(); renderList();
+}
+
+// ══════ START ══════
+document.getElementById('searchInput').addEventListener('input',renderList);
+initApp();
+</script>
+</body>
+</html>
